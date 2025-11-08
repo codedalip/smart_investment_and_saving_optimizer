@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Smart Investment & Savings Optimizer — Debugged</title>
+  <meta name="description" content="Working multi-page frontend: Dashboard, Optimizer, Compare, About. Includes optimizer, Monte Carlo, comparisons and PPT export for presentations." />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.10.0/dist/pptxgen.bundle.js"></script>
+  <style>
+    :root{--accent-a:#7c3aed;--accent-b:#06b6d4;--muted:#94a3b8;--bg:#071029}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:radial-gradient(circle at 10% 10%, rgba(124,58,237,0.12), transparent 10%), radial-gradient(circle at 90% 90%, rgba(6,182,212,0.08), transparent 8%), var(--bg);color:#e6eef8;font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+    header{display:flex;align-items:center;justify-content:space-between;padding:18px 24px;backdrop-filter:blur(6px);border-bottom:1px solid rgba(255,255,255,0.03)}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--accent-a),var(--accent-b));display:flex;align-items:center;justify-content:center;font-weight:700;color:white}
+    nav{display:flex;gap:10px}
+    nav button{background:transparent;border:0;padding:8px 12px;border-radius:10px;color:var(--muted);cursor:pointer}
+    nav button.active{background:linear-gradient(90deg, rgba(124,58,237,0.14), rgba(6,182,212,0.08));color:white}
+    main{padding:22px;display:flex;gap:22px}
+    .sidebar{width:320px}
+    .panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:16px;border:1px solid rgba(255,255,255,0.02)}
+    label{display:block;margin-top:10px;color:var(--muted);font-size:13px}
+    input[type=number],input[type=text],select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .btn{padding:10px 14px;border-radius:10px;border:0;cursor:pointer}
+    .btn-primary{background:linear-gradient(90deg,var(--accent-a),var(--accent-b));color:white}
+    .content{flex:1}
+    .card{padding:16px;border-radius:12px;margin-bottom:16px}
+    .chartbox{height:320px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;text-align:left;border-bottom:1px dashed rgba(255,255,255,0.02)}
+    footer{padding:14px;text-align:center;color:var(--muted)}
+    @media (max-width:980px){main{flex-direction:column}.sidebar{width:100%}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">SI</div>
+      <div>
+        <div style="font-weight:700">Smart Investment & Savings Optimizer</div>
+        <div style="font-size:12px;color:var(--muted)">Debugged working demo — multi-page SPA</div>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-btn active" data-page="#home">Dashboard</button>
+      <button class="nav-btn" data-page="#optimizer">Optimizer</button>
+      <button class="nav-btn" data-page="#compare">Compare</button>
+      <button class="nav-btn" data-page="#about">About</button>
+    </nav>
+  </header>
+
+  <main>
+    <aside class="sidebar">
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center"><strong>Inputs</strong><small style="color:var(--muted)">Editable</small></div>
+        <label>Monthly Income (₹)</label>
+        <input type="number" id="income" value="50000" min="0">
+        <label>Current Savings (₹)</label>
+        <input type="number" id="savings" value="100000">
+        <label>Goal name</label>
+        <input type="text" id="goalName" value="House Downpayment">
+        <label>Goal amount (₹)</label>
+        <input type="number" id="goalAmount" value="2000000">
+        <label>Years to reach</label>
+        <input type="number" id="goalYears" value="7" min="1">
+        <label>Risk tolerance</label>
+        <select id="risk"><option value="0.3">Conservative</option><option value="0.5" selected>Balanced</option><option value="0.8">Aggressive</option></select>
+        <label>Investment style</label>
+        <select id="style"><option value="sip">Monthly SIP</option><option value="lumpsum">Lump-sum</option></select>
+        <div style="display:flex;gap:10px;margin-top:12px">
+          <button class="btn btn-primary" id="runAll">Run</button>
+          <button class="btn" id="exportPPT">Export PPT</button>
+        </div>
+      </div>
+      <div style="height:16px"></div>
+      <div class="panel" id="presetPanel">
+        <strong>Assets (editable)</strong>
+        <div id="assetsList" style="margin-top:8px"></div>
+      </div>
+    </aside>
+
+    <section class="content">
+      <div id="pages">
+        <div class="page" id="home" style="display:block">
+          <div class="card panel">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <h3 style="margin:4px 0">Projected Growth</h3>
+                <div style="color:var(--muted);font-size:13px">Optimized vs Bank</div>
+              </div>
+              <div><span id="nextGoal" style="font-size:13px;color:var(--muted)"></span></div>
+            </div>
+            <div style="margin-top:12px" class="chartbox"><canvas id="growthChart"></canvas></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 380px;gap:16px">
+            <div>
+              <div class="card panel">
+                <h4 style="margin:0">Monte Carlo Distribution</h4>
+                <div style="color:var(--muted);font-size:13px">Median and percentile outcomes</div>
+                <div style="margin-top:12px;height:260px"><canvas id="mcChart"></canvas></div>
+              </div>
+
+              <div class="card panel">
+                <h4 style="margin:0">Yearly snapshots</h4>
+                <div style="color:var(--muted);font-size:13px">Yearly projected values</div>
+                <div id="seriesTable" style="margin-top:12px"></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="card panel">
+                <h4 style="margin:0">Recommendations</h4>
+                <div style="color:var(--muted);font-size:13px">Amounts to invest</div>
+                <div style="margin-top:12px" id="recommendations"></div>
+              </div>
+
+              <div class="card panel">
+                <h4 style="margin:0">Allocation</h4>
+                <div style="color:var(--muted);font-size:13px">Optimized weights (mean-variance-inspired)</div>
+                <div id="allocTable" style="margin-top:12px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page" id="optimizer" style="display:none">
+          <div class="card panel">
+            <h3 style="margin:0">Optimizer Console</h3>
+            <div style="color:var(--muted);font-size:13px">Tune parameters and run optimizer to see allocation</div>
+            <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-primary" id="runOptimizerBtn">Run Optimizer (fast)</button>
+              <button class="btn" id="runOptimizerLong">Run Optimizer (thorough)</button>
+              <button class="btn" id="randomizeBtn">Randomize Preset</button>
+            </div>
+            <div id="optimizerLog" style="margin-top:12px;color:var(--muted)"></div>
+          </div>
+
+          <div class="card panel">
+            <h4 style="margin:0">Advanced</h4>
+            <div style="color:var(--muted);font-size:13px">Adjust asset expected returns & volatilities for scenario testing</div>
+            <div id="advancedAssets"></div>
+          </div>
+        </div>
+
+        <div class="page" id="compare" style="display:none">
+          <div class="card panel">
+            <h3 style="margin:0">Compare: Bank vs Optimized vs Conservative</h3>
+            <div style="color:var(--muted);font-size:13px">Quick side-by-side</div>
+            <div style="margin-top:12px"><canvas id="compareChart" style="height:260px"></canvas></div>
+          </div>
+
+          <div class="card panel">
+            <h4 style="margin:0">Scenario table</h4>
+            <div id="scenarioTable" style="margin-top:12px"></div>
+          </div>
+        </div>
+
+        <div class="page" id="about" style="display:none">
+          <div class="card panel">
+            <h3>About & Methodology</h3>
+            <p style="color:var(--muted)">This demo implements a practical optimizer combining mean-variance principles with a fast randomized search tuned for different risk tolerances. It runs Monte Carlo simulations using geometric Brownian motion per asset and provides SIP/lump-sum projections. Use the Export PPT button to generate slides for your hackathon pitch.</p>
+            <ul style="color:var(--muted)">
+              <li>Portfolio theory (mean–variance) — randomized search approximates efficient allocations</li>
+              <li>Monte Carlo (GBM) — outcome distribution and percentiles</li>
+              <li>Time-value of money — SIP/lump-sum formulas used for required contributions</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <footer>Made for hackathons — demo ready. Run in Chrome/Edge/Firefox.</footer>
+
+  <script>
+    // ---------- DATA ----------
+    const assets = [
+      { key: 'FD',   name: 'Bank / FD', ret: 0.06, vol: 0.02 },
+      { key: 'Bonds',name: 'Govt + Corporate Bonds', ret: 0.07, vol: 0.06 },
+      { key: 'Large',name: 'Large Cap Equity', ret: 0.12, vol: 0.18 },
+      { key: 'Mid',  name: 'Mid/Small Cap Equity', ret: 0.15, vol: 0.26 },
+      { key: 'Intl', name: 'International Equity', ret: 0.10, vol: 0.20 },
+      { key: 'Gold', name: 'Gold', ret: 0.08, vol: 0.18 },
+      { key: 'REIT', name: 'Real Estate (REITs)', ret: 0.09, vol: 0.16 }
+    ];
+
+    const corr = [
+      [1,0.2,0.1,0.08,0.05,0.05,0.1],
+      [0.2,1,0.35,0.3,0.25,0.05,0.2],
+      [0.1,0.35,1,0.7,0.6,0.15,0.45],
+      [0.08,0.3,0.7,1,0.55,0.12,0.45],
+      [0.05,0.25,0.6,0.55,1,0.08,0.4],
+      [0.05,0.05,0.15,0.12,0.08,1,0.12],
+      [0.1,0.2,0.45,0.45,0.4,0.12,1]
+    ];
+
+    // ---------- MATH HELPERS ----------
+    function buildCov() {
+      const n = assets.length;
+      const cov = Array.from({ length: n }, () => Array(n).fill(0));
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          cov[i][j] = corr[i][j] * assets[i].vol * assets[j].vol;
+        }
+      }
+      return cov;
+    }
+
+    function randomWeights(n) {
+      const w = Array.from({ length: n }, () => Math.random());
+      const s = w.reduce((a, b) => a + b, 0);
+      return w.map(x => x / s);
+    }
+
+    function gaussian() {
+      let u = 0, v = 0;
+      while (u === 0) u = Math.random();
+      while (v === 0) v = Math.random();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+
+    function portStats(weights) {
+      const n = assets.length;
+      let mu = 0;
+      for (let i = 0; i < n; i++) mu += weights[i] * assets[i].ret;
+      const cov = buildCov();
+      let variance = 0;
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          variance += weights[i] * weights[j] * cov[i][j];
+        }
+      }
+      return { ret: mu, vol: Math.sqrt(Math.max(0, variance)) };
+    }
+
+    // Cholesky
+    function cholesky(mat) {
+      const m = mat.length;
+      const L = Array.from({ length: m }, () => Array(m).fill(0));
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j <= i; j++) {
+          let s = 0;
+          for (let k = 0; k < j; k++) s += L[i][k] * L[j][k];
+          if (i === j) L[i][j] = Math.sqrt(Math.max(0, mat[i][i] - s));
+          else L[i][j] = (1.0 / L[j][j]) * (mat[i][j] - s);
+        }
+      }
+      return L;
+    }
+
+    function monteCarloSim(weights, years, nSims = 800) {
+      const n = assets.length;
+      const cov = buildCov();
+      const L = cholesky(cov);
+      const mu = assets.map(a => a.ret);
+      const results = [];
+      for (let sim = 0; sim < nSims; sim++) {
+        let value = 1;
+        for (let y = 0; y < years; y++) {
+          const z = Array.from({ length: n }, () => gaussian());
+          const corrZ = Array(n).fill(0).map((_, i) => {
+            let sum = 0;
+            for (let j = 0; j <= i; j++) sum += L[i][j] * z[j];
+            return sum;
+          });
+          let portReturn = 0;
+          for (let i = 0; i < n; i++) {
+            const assetReturn = Math.exp((mu[i] - 0.5 * assets[i].vol * assets[i].vol) + assets[i].vol * corrZ[i]) - 1;
+            portReturn += weights[i] * assetReturn;
+          }
+          value *= (1 + portReturn);
+        }
+        results.push(value);
+      }
+      return results;
+    }
+
+    // TVM
+    function futureValueMonthly(monthly, rAnnual, years) {
+      const r = rAnnual / 12;
+      const n = years * 12;
+      if (Math.abs(r) < 1e-12) return monthly * n;
+      return monthly * ((Math.pow(1 + r, n) - 1) / r);
+    }
+
+    function futureValueLump(lump, rAnnual, years) {
+      return lump * Math.pow(1 + rAnnual, years);
+    }
+
+    function formatNumber(x) {
+      if (x === null || x === undefined) return '-';
+      return '₹ ' + Math.round(x).toLocaleString('en-IN');
+    }
+
+    // ---------- UI ----------
+    function renderAssetsEditor() {
+      const el = document.getElementById('assetsList');
+      el.innerHTML = '';
+      assets.forEach((a, i) => {
+        const row = document.createElement('div');
+        row.style.display = 'grid';
+        row.style.gridTemplateColumns = '1fr 80px';
+        row.style.gap = '8px';
+        row.style.alignItems = 'center';
+        row.style.marginTop = '8px';
+
+        const left = document.createElement('div');
+        left.innerHTML = '<div style="font-weight:600">' + a.name + '</div>' +
+          '<div style="font-size:12px;color:var(--muted)">exp ' + (a.ret * 100).toFixed(1) + '% · vol ' + (a.vol * 100).toFixed(1) + '%</div>';
+
+        const inp = document.createElement('input');
+        inp.type = 'number';
+        inp.min = 0;
+        inp.max = 100;
+        inp.value = a.weight ? (a.weight * 100).toFixed(0) : 0;
+        inp.addEventListener('input', function () {
+          a.weight = Math.max(0, Math.min(100, parseFloat(this.value) || 0)) / 100;
+        });
+
+        row.appendChild(left);
+        row.appendChild(inp);
+        el.appendChild(row);
+      });
+    }
+
+    function renderAdvancedAssets() {
+      const el = document.getElementById('advancedAssets');
+      el.innerHTML = '';
+      assets.forEach((a) => {
+        const div = document.createElement('div');
+        div.style.display = 'grid';
+        div.style.gridTemplateColumns = '1fr 70px 70px';
+        div.style.gap = '8px';
+        div.style.marginTop = '8px';
+
+        const name = document.createElement('div');
+        name.style.fontWeight = '600';
+        name.textContent = a.name;
+
+        const r = document.createElement('input');
+        r.type = 'number'; r.step = '0.01'; r.value = (a.ret * 100).toFixed(2);
+        r.title = 'Expected annual return %';
+        r.addEventListener('change', function () { a.ret = parseFloat(this.value) / 100; });
+
+        const v = document.createElement('input');
+        v.type = 'number'; v.step = '0.01'; v.value = (a.vol * 100).toFixed(2);
+        v.title = 'Volatility %';
+        v.addEventListener('change', function () { a.vol = parseFloat(this.value) / 100; });
+
+        div.appendChild(name);
+        div.appendChild(r);
+        div.appendChild(v);
+        el.appendChild(div);
+      });
+    }
+
+    function seedDefaultWeights() {
+      const def = [0.1, 0.2, 0.35, 0.15, 0.1, 0.05, 0.05];
+      assets.forEach((a, i) => { a.weight = def[i]; });
+    }
+
+    seedDefaultWeights();
+    renderAssetsEditor();
+    renderAdvancedAssets();
+
+    // ---------- CHART HELPERS ----------
+    let growthChart = null, mcChart = null, compareChart = null;
+
+    function makeGradient(ctx, color) {
+      const g = ctx.createLinearGradient(0, 0, 0, 400);
+      g.addColorStop(0, color);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      return g;
+    }
+
+    function updateGrowthChart(labels, optSeries, bankSeries) {
+      const ctx = document.getElementById('growthChart').getContext('2d');
+      if (growthChart) growthChart.destroy();
+      growthChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Optimized', data: optSeries, borderWidth: 2, fill: true, backgroundColor: makeGradient(ctx, 'rgba(124,58,237,0.16)') },
+            { label: 'Bank', data: bankSeries, borderWidth: 2, fill: true, backgroundColor: makeGradient(ctx, 'rgba(6,182,212,0.12)') }
+          ]
+        },
+        options: { plugins: { legend: { labels: { color: '#cfe8ff' } } }, scales: { x: { ticks: { color: '#bcd7ff' } }, y: { ticks: { color: '#bcd7ff' } } } }
+      });
+    }
+
+    function updateMCChart(values) {
+      const sorted = values.slice().sort((a, b) => a - b);
+      const q10 = sorted[Math.floor(sorted.length * 0.1)] || 0;
+      const q50 = sorted[Math.floor(sorted.length * 0.5)] || 0;
+      const q90 = sorted[Math.floor(sorted.length * 0.9)] || 0;
+      const ctx = document.getElementById('mcChart').getContext('2d');
+      if (mcChart) mcChart.destroy();
+      mcChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: ['10th', '50th', '90th'], datasets: [{ label: 'Multiplier', data: [q10, q50, q90], borderWidth: 1 }] },
+        options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#cfe8ff' } }, y: { ticks: { color: '#cfe8ff' } } } }
+      });
+    }
+
+    function updateCompareChart(labels, arrs) {
+      const ctx = document.getElementById('compareChart').getContext('2d');
+      if (compareChart) compareChart.destroy();
+      compareChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: labels, datasets: arrs.map(a => ({ label: a.label, data: a.data, borderWidth: 2, fill: false })) },
+        options: { plugins: { legend: { labels: { color: '#cfe8ff' } } }, scales: { x: { ticks: { color: '#bcd7ff' } }, y: { ticks: { color: '#bcd7ff' } } } }
+      });
+    }
+
+    // ---------- OPTIMIZER & RUN ----------
+    function optimizeDetailed(riskTol, iterations = 40000) {
+      const rf = 0.04;
+      const n = assets.length;
+      let best = null;
+      for (let k = 0; k < iterations; k++) {
+        const w = randomWeights(n);
+        const s = portStats(w);
+        const exposure = w[2] + w[3] + w[4];
+        const penalty = Math.max(0, exposure - riskTol);
+        const score = (s.ret - rf) / Math.max(1e-6, s.vol) - penalty * 1.2;
+        if (!best || score > best.score) best = { score: score, weights: w, ret: s.ret, vol: s.vol };
+      }
+      // small hill-climb
+      for (let t = 0; t < 2000; t++) {
+        const w = best.weights.slice();
+        const i = Math.floor(Math.random() * n);
+        const j = Math.floor(Math.random() * n);
+        const delta = (Math.random() - 0.5) * 0.06;
+        w[i] = Math.max(0, w[i] + delta);
+        w[j] = Math.max(0, w[j] - delta);
+        const s = portStats(w);
+        const exposure = w[2] + w[3] + w[4];
+        const penalty = Math.max(0, exposure - riskTol);
+        const score = (s.ret - rf) / Math.max(1e-6, s.vol) - penalty * 1.2;
+        if (score > best.score) best = { score: score, weights: w, ret: s.ret, vol: s.vol };
+      }
+      const sum = best.weights.reduce((a, b) => a + b, 0);
+      best.weights = best.weights.map(x => x / sum);
+      return best;
+    }
+
+    function buildSeries(savings, monthly, annualReturn, years) {
+      const series = [Math.round(savings)];
+      let val = savings;
+      for (let y = 1; y <= years; y++) {
+        const fv = futureValueMonthly(monthly, annualReturn, 1);
+        val = val * (1 + annualReturn) + fv;
+        series.push(Math.round(val));
+      }
+      return series;
+    }
+
+    function populateSeriesTable(yearsArr, opt, bank) {
+      const el = document.getElementById('seriesTable');
+      let html = '<table><thead><tr><th>Year</th><th>Optimized</th><th>Bank</th></tr></thead><tbody>';
+      for (let i = 0; i < yearsArr.length; i++) {
+        html += '<tr><td>' + yearsArr[i] + '</td><td>' + formatNumber(opt[i]) + '</td><td>' + formatNumber(bank[i]) + '</td></tr>';
+      }
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    }
+
+    function populateRecommendations(sip, expAnnual, bankSip, bankAnnual, fvSavings, years) {
+      const el = document.getElementById('recommendations');
+      el.innerHTML = '';
+      const div = document.createElement('div');
+      div.style.display = 'flex'; div.style.flexDirection = 'column'; div.style.gap = '8px';
+      div.innerHTML = '<div>Monthly SIP required: <strong>' + formatNumber(sip) + '</strong></div>' +
+        '<div>Projected (optimized) after ' + years + ' yrs (incl savings): <strong>' + formatNumber(futureValueMonthly(sip, expAnnual, years) + fvSavings) + '</strong></div>' +
+        '<div>Bank SIP required: <strong>' + formatNumber(bankSip) + '</strong></div>' +
+        '<div>Projected (bank) after ' + years + ' yrs: <strong>' + formatNumber(futureValueMonthly(bankSip, bankAnnual, years) + futureValueLump(parseFloat(document.getElementById('savings').value || 0), bankAnnual, years)) + '</strong></div>';
+      el.appendChild(div);
+    }
+
+    function populateAllocTable() {
+      const el = document.getElementById('allocTable');
+      let html = '<table><thead><tr><th>Asset</th><th>Weight</th><th>Exp Return</th><th>Vol</th></tr></thead><tbody>';
+      assets.forEach(a => {
+        html += '<tr><td>' + a.name + '</td><td>' + ((a.weight * 100) || 0).toFixed(1) + '%</td><td>' + (a.ret * 100).toFixed(1) + '%</td><td>' + (a.vol * 100).toFixed(1) + '%</td></tr>';
+      });
+      html += '</tbody></table>';
+      el.innerHTML = html;
+    }
+
+    function runAll(thorough = false) {
+      const income = parseFloat(document.getElementById('income').value) || 0;
+      const savings = parseFloat(document.getElementById('savings').value) || 0;
+      const goal = parseFloat(document.getElementById('goalAmount').value) || 0;
+      const years = parseFloat(document.getElementById('goalYears').value) || 1;
+      const risk = parseFloat(document.getElementById('risk').value) || 0.5;
+      const style = document.getElementById('style').value;
+
+      const logEl = document.getElementById('optimizerLog');
+      if (logEl) logEl.textContent = 'Running optimizer...';
+
+      // run in short async chunk so UI can update
+      setTimeout(function () {
+        const best = optimizeDetailed(risk, thorough ? 80000 : 25000);
+        const sum = best.weights.reduce((a, b) => a + b, 0);
+        best.weights = best.weights.map(x => x / sum);
+        assets.forEach((a, i) => a.weight = best.weights[i]);
+        renderAssetsEditor(); renderAdvancedAssets();
+
+        const expectedAnnual = best.ret;
+        const rmonthly = Math.pow(1 + expectedAnnual, 1 / 12) - 1;
+        const months = years * 12;
+        const fvSavings = futureValueLump(savings, expectedAnnual, years);
+
+        let sip = 0;
+        if (style === 'sip') {
+          if (Math.abs(rmonthly) < 1e-12) sip = Math.max(0, (goal - fvSavings) / months);
+          else sip = Math.max(0, (goal - fvSavings) * (rmonthly / (Math.pow(1 + rmonthly, months) - 1)));
+        } else {
+          sip = Math.max(0, (goal - fvSavings));
+        }
+
+        const bankAnnual = 0.065;
+        const rM_B = Math.pow(1 + bankAnnual, 1 / 12) - 1;
+        const bankSipNeeded = style === 'sip' ? Math.max(0, (goal - futureValueLump(savings, bankAnnual, years)) * (rM_B / (Math.pow(1 + rM_B, months) - 1))) : Math.max(0, (goal / Math.pow(1 + bankAnnual, years) - savings));
+
+        const yearsArr = Array.from({ length: years + 1 }, (_, i) => i);
+        const optSeries = buildSeries(savings, sip, expectedAnnual, years);
+        const bankSeries = buildSeries(savings, bankSipNeeded, bankAnnual, years);
+
+        updateGrowthChart(yearsArr, optSeries, bankSeries);
+
+        const mc = monteCarloSim(best.weights, years, 600);
+        updateMCChart(mc);
+
+        populateSeriesTable(yearsArr, optSeries, bankSeries);
+        populateRecommendations(sip, expectedAnnual, bankSipNeeded, bankAnnual, fvSavings, years);
+        populateAllocTable();
+
+        updateCompareChart(yearsArr, [
+          { label: 'Optimized', data: optSeries },
+          { label: 'Bank', data: bankSeries },
+          { label: 'Conservative', data: buildSeries(savings, bankSipNeeded, 0.055, years) }
+        ]);
+
+        if (logEl) logEl.textContent = 'Done — expected return ' + (expectedAnnual * 100).toFixed(2) + '% · vol ' + (best.vol * 100).toFixed(2) + '%';
+      }, 50);
+    }
+
+    // ---------- UI HOOKS ----------
+    document.getElementById('runAll').addEventListener('click', function () { runAll(false); });
+
+    document.getElementById('runOptimizerBtn').addEventListener('click', function () {
+      const logEl = document.getElementById('optimizerLog'); if (logEl) logEl.textContent = 'Running quick optimizer...';
+      setTimeout(function () {
+        const r = parseFloat(document.getElementById('risk').value);
+        const best = optimizeDetailed(r, 22000);
+        assets.forEach((a, i) => a.weight = best.weights[i]);
+        renderAssetsEditor(); renderAdvancedAssets(); populateAllocTable();
+        if (logEl) logEl.textContent = 'Quick run done — exp ' + (best.ret * 100).toFixed(2) + '% · vol ' + (best.vol * 100).toFixed(2) + '%';
+      }, 40);
+    });
+
+    document.getElementById('runOptimizerLong').addEventListener('click', function () {
+      const logEl = document.getElementById('optimizerLog'); if (logEl) logEl.textContent = 'Running thorough optimizer...';
+      setTimeout(function () {
+        const r = parseFloat(document.getElementById('risk').value);
+        const best = optimizeDetailed(r, 120000);
+        assets.forEach((a, i) => a.weight = best.weights[i]);
+        renderAssetsEditor(); renderAdvancedAssets(); populateAllocTable();
+        if (logEl) logEl.textContent = 'Thorough run done — exp ' + (best.ret * 100).toFixed(2) + '% · vol ' + (best.vol * 100).toFixed(2) + '%';
+      }, 40);
+    });
+
+    document.getElementById('randomizeBtn').addEventListener('click', function () {
+      assets.forEach(a => {
+        a.ret = Math.max(0.02, a.ret + (Math.random() - 0.5) * 0.06);
+        a.vol = Math.max(0.01, a.vol + (Math.random() - 0.5) * 0.06);
+      });
+      renderAdvancedAssets();
+    });
+
+    // navigation
+    document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', function (e) {
+      document.querySelectorAll('.nav-btn').forEach(x => x.classList.remove('active'));
+      this.classList.add('active');
+      const page = this.dataset.page;
+      document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+      const el = document.querySelector(page);
+      if (el) el.style.display = 'block';
+      window.location.hash = page;
+    }));
+
+    window.addEventListener('load', function () {
+      const h = window.location.hash || '#home';
+      const btn = document.querySelector('.nav-btn[data-page="' + h + '"]');
+      if (btn) btn.click(); else if (document.querySelector('.nav-btn')) document.querySelector('.nav-btn').click();
+      runAll(false);
+    });
+
+    // ---------- Export PPT ----------
+    document.getElementById('exportPPT').addEventListener('click', function () {
+      const ppt = new PptxGenJS();
+      ppt.layout = 'LAYOUT_WIDE';
+      const title = document.getElementById('goalName').value || 'My Goal';
+      const slide1 = ppt.addSlide();
+      slide1.addText('Smart Investment & Savings Optimizer', { x: 0.5, y: 0.3, fontSize: 20, bold: true });
+      slide1.addText('Goal: ' + title + ' — Amount: ' + document.getElementById('goalAmount').value, { x: 0.5, y: 1.0, fontSize: 14 });
+      const rows = [['Asset', 'Weight', 'Exp Return', 'Vol']].concat(assets.map(a => [a.name, ((a.weight || 0) * 100).toFixed(1) + '%', (a.ret * 100).toFixed(1) + '%', (a.vol * 100).toFixed(1) + '%']));
+      slide1.addTable(rows, { x: 0.5, y: 1.6, w: 9.0, rowH: 0.45, fontSize: 12 });
+      const slide2 = ppt.addSlide(); slide2.addText('Projections', { x: 0.5, y: 0.3, fontSize: 18, bold: true });
+      const rec = document.getElementById('recommendations').innerText || '';
+      slide2.addText(rec, { x: 0.5, y: 0.8, fontSize: 12 });
+      ppt.writeFile({ fileName: 'SI_Optimizer_' + title.split(' ').join('_') + '.pptx' });
+    });
+
+  </script>
+</body>
+</html>
